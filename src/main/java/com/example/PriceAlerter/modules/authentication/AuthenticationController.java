@@ -7,6 +7,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.PriceAlerter.modules.authentication.dto.LoginRequest;
+import com.example.PriceAlerter.modules.authentication.dto.LoginResponse;
 import com.example.PriceAlerter.modules.authentication.dto.RegisterRequest;
 import com.example.PriceAlerter.modules.authentication.dto.RegisterResponse;
 
@@ -24,5 +26,13 @@ public class AuthenticationController {
     @ResponseStatus(HttpStatus.CREATED)
     public RegisterResponse register(@RequestBody RegisterRequest request) {
         return authenticationService.register(request);
+    }
+
+
+    @PostMapping("/login")
+    @ResponseStatus(HttpStatus.OK)
+    public LoginResponse login(@RequestBody LoginRequest request) {
+        // Implement login logic here
+        return authenticationService.login(request);
     }
 }

@@ -7,6 +7,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.example.PriceAlerter.modules.authentication.dto.LoginRequest;
+import com.example.PriceAlerter.modules.authentication.dto.LoginResponse;
 import com.example.PriceAlerter.modules.authentication.dto.RegisterRequest;
 import com.example.PriceAlerter.modules.authentication.dto.RegisterResponse;
 import com.example.PriceAlerter.modules.users.User;
@@ -22,7 +24,21 @@ public class AuthenticationService {
     public AuthenticationService(UsersRepository usersRepository) {
         this.usersRepository = usersRepository;
     }
+     public LoginResponse login(LoginRequest request) {
+        // 1. Find user by email
+        User user = usersRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials"));
 
+        // 2. Compare hashed password — THIS is where BCrypt comparison happens
+        boolean passwordMatches = passwordEncoder.matches(request.getPassword(), user.getPassword());
+        
+        if (!passwordMatches) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
+        }
+
+        // 3. Return response (later you'll return a JWT token here)
+        return new LoginResponse(user.getEmail(), user.getName());
+    }
     public RegisterResponse register(RegisterRequest request) {
         validateRegisterRequest(request);
 
