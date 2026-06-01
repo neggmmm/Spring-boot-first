@@ -1,12 +1,14 @@
 package com.example.PriceAlerter.modules.authentication;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.example.PriceAlerter.common.jwt.JwtService;
 import com.example.PriceAlerter.modules.authentication.dto.LoginRequest;
 import com.example.PriceAlerter.modules.authentication.dto.LoginResponse;
 import com.example.PriceAlerter.modules.authentication.dto.RegisterRequest;
@@ -14,67 +16,44 @@ import com.example.PriceAlerter.modules.authentication.dto.RegisterResponse;
 import com.example.PriceAlerter.modules.users.User;
 import com.example.PriceAlerter.modules.users.UsersRepository;
 
+import lombok.RequiredArgsConstructor;
+
 @Service
 @Transactional
+@RequiredArgsConstructor
 public class AuthenticationService {
 
     private final UsersRepository usersRepository;
-    private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+    private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
+    private final AuthenticationManager authenticationManager;
 
-    public AuthenticationService(UsersRepository usersRepository) {
-        this.usersRepository = usersRepository;
+    public LoginResponse login(LoginRequest request) {
+        // This single line: loads user by email, checks password, throws if wrong
+        // It uses the authenticationProvider you wired in SecurityConfig
+        authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(request.email(), request.password()));
+
+        // If we get here, credentials are valid — load user and generate token
+        User user = usersRepository.findByEmail(request.email()).orElseThrow();
+        String token = jwtService.generateToken(user);
+
+        return new LoginResponse(token, user.getEmail(), user.getName());
     }
-     public LoginResponse login(LoginRequest request) {
-        // 1. Find user by email
-        User user = usersRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials"));
 
-        // 2. Compare hashed password — THIS is where BCrypt comparison happens
-        boolean passwordMatches = passwordEncoder.matches(request.getPassword(), user.getPassword());
-        
-        if (!passwordMatches) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
-        }
-
-        // 3. Return response (later you'll return a JWT token here)
-        return new LoginResponse(user.getEmail(), user.getName());
-    }
     public RegisterResponse register(RegisterRequest request) {
-        validateRegisterRequest(request);
-
-        String email = request.getEmail().trim().toLowerCase();
-        if (usersRepository.existsByEmailIgnoreCase(email)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email is already registered");
+        if (usersRepository.existsByEmailIgnoreCase(request.email())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already registered");
         }
 
         User user = new User();
-        user.setName(request.getName().trim());
-        user.setEmail(email);
-        user.setPhoneNumber(request.getPhoneNumber().trim());
-        user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setName(request.name().trim());
+        user.setEmail(request.email().trim().toLowerCase());
+        user.setPhoneNumber(request.phoneNumber().trim());
+        user.setPassword(passwordEncoder.encode(request.password()));
 
-        return new RegisterResponse(usersRepository.save(user));
+        User savedUser = usersRepository.save(user);
+        return new RegisterResponse(savedUser.getEmail(), savedUser.getName());
     }
 
-    private void validateRegisterRequest(RegisterRequest request) {
-        if (request == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Request body is required");
-        }
-        if (isBlank(request.getName())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Name is required");
-        }
-        if (isBlank(request.getEmail())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email is required");
-        }
-        if (isBlank(request.getPhoneNumber())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Phone number is required");
-        }
-        if (isBlank(request.getPassword())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password is required");
-        }
-    }
-
-    private boolean isBlank(String value) {
-        return value == null || value.isBlank();
-    }
 }

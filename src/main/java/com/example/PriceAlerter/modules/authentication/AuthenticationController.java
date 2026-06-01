@@ -12,6 +12,8 @@ import com.example.PriceAlerter.modules.authentication.dto.LoginResponse;
 import com.example.PriceAlerter.modules.authentication.dto.RegisterRequest;
 import com.example.PriceAlerter.modules.authentication.dto.RegisterResponse;
 
+import jakarta.validation.Valid;
+
 @RestController
 @RequestMapping("/auth")
 public class AuthenticationController {
@@ -24,7 +26,7 @@ public class AuthenticationController {
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
-    public RegisterResponse register(@RequestBody RegisterRequest request) {
+    public RegisterResponse register(@RequestBody @Valid RegisterRequest request) {
         return authenticationService.register(request);
     }
 
