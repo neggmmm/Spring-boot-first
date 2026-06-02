@@ -57,4 +57,14 @@ public class AuthenticationController {
         // Implement logic to get current user details here
         return new UserDetailsResponse(currentUser.getId(), currentUser.getEmail(), currentUser.getName());
     }
+
+    @PostMapping("/logout")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void logout(HttpServletResponse response) {
+        Cookie cookie = new Cookie("access_token", "");
+        cookie.setHttpOnly(true);
+        cookie.setPath("/");
+        cookie.setMaxAge(0);
+        response.addCookie(cookie);
+    }
 }
