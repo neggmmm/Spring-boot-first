@@ -16,6 +16,7 @@ import com.example.PriceAlerter.modules.authentication.dto.RegisterResponse;
 import com.example.PriceAlerter.modules.authentication.dto.UserDetailsResponse;
 import com.example.PriceAlerter.modules.users.User;
 
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 
@@ -40,10 +41,13 @@ public class AuthenticationController {
     public LoginResponse login(@RequestBody LoginRequest request, HttpServletResponse response) {
 
         LoginResponse result = authenticationService.login(request);
-        response.setHeader("Authorization", "Bearer " + result.token());
+        Cookie cookie = new Cookie("access_token", result.token());
+        cookie.setHttpOnly(true); // JS cannot read this — XSS protection
+        cookie.setSecure(false); // set true in production (HTTPS only)
+        cookie.setPath("/"); // sent on every request
+        cookie.setMaxAge(60 * 15); // 15 minutes — matches your JWT expiration
 
-        // Also expose it so frontend JS can read it (blocked by default)
-        response.setHeader("Access-Control-Expose-Headers", "Authorization");
+        response.addCookie(cookie);
         return result;
     }
 

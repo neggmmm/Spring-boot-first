@@ -13,6 +13,7 @@ import com.example.PriceAlerter.modules.users.UsersRepository;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -22,35 +23,42 @@ import lombok.RequiredArgsConstructor;
 public class JwtAuthFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final UsersRepository usersRepository;
-     @Override
+
+    @Override
     protected void doFilterInternal(
             HttpServletRequest request,
             HttpServletResponse response,
-            FilterChain filterChain       // like next() in NestJS/Express
+            FilterChain filterChain // like next() in NestJS/Express
     ) throws ServletException, IOException {
 
-        final String authHeader = request.getHeader("Authorization");
-
+        String jwt = null;
+        String authHeader = request.getHeader("Authorization");
         // No token → skip, SecurityConfig will reject if route is protected
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            jwt = authHeader.substring(7);
+        }
+
+        if (jwt == null && request.getCookies() != null) {
+            for (Cookie cookie : request.getCookies()) {
+                if ("access_token".equals(cookie.getName())) {
+                    jwt = cookie.getValue();
+                    break;
+                }
+            }
+        }
+
+        if (jwt == null) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        final String jwt = authHeader.substring(7); // strip "Bearer "
-        final String email = jwtService.extractEmail(jwt);
-
-        // Only authenticate if not already authenticated (like NestJS guard short-circuit)
+        // rest of your existing logic — nothing changes here
+        String email = jwtService.extractEmail(jwt);
         if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            UserDetails userDetails =  usersRepository.findByEmail(email)
-            .orElse(null);
-
+            UserDetails userDetails = usersRepository.findByEmail(email).orElseThrow();
             if (jwtService.isTokenValid(jwt, userDetails)) {
-                // This is how you tell Spring "this request is authenticated"
-                UsernamePasswordAuthenticationToken authToken =
-                        new UsernamePasswordAuthenticationToken(
-                                userDetails, null, userDetails.getAuthorities()
-                        );
+                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                        userDetails, null, userDetails.getAuthorities());
                 authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authToken);
             }
